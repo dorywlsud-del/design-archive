@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>디자인 아카이브 — 그래픽 레퍼런스 · 편집 · 북디자인</title>
+<meta name="description" content="오프라인에서 열리는 로컬 디자인 자료 아카이브. 이미지를 드래그·스크롤하며 둘러보고 상세 설명을 확인하세요.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1 class="brand">디자인 아카이브</h1>
+  <div class="status" aria-live="polite">
+    <span class="status__label" id="statusLabel">전체</span>
+    <span class="status__count" id="statusCount">0</span>
+  </div>
+  <button class="menu-btn" id="menuBtn" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="drawer">
+    <span class="menu-btn__icon" aria-hidden="true"><i></i><i></i></span>
+    <span class="menu-btn__text">메뉴 열기</span>
+  </button>
+</header>
+
+<main class="canvas" id="canvas" aria-label="디자인 자료 캔버스">
+  <div class="ground" id="ground"></div>
+  <p class="hint" id="hint">드래그하거나 스크롤해서 어느 방향으로든 움직여 보세요</p>
+  <div class="empty" id="empty" hidden>
+    <p class="empty__text" id="emptyText">조건에 맞는 자료가 없습니다.</p>
+    <button class="ghost-btn" id="emptyReset" type="button">전체 자료 보기</button>
+  </div>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" aria-label="메뉴" aria-hidden="true">
+  <div class="drawer__head">
+    <span class="drawer__title">메뉴</span>
+    <button class="icon-btn" id="drawerClose" type="button" aria-label="메뉴 닫기">×</button>
+  </div>
+
+  <div class="drawer__search">
+    <label class="field-label" for="search">용어 · 자료 검색</label>
+    <input class="search-input" id="search" type="search" autocomplete="off" spellcheck="false"
+           placeholder="예: 그리드, 제본, 리스그래프, 2026">
+  </div>
+
+  <div class="drawer__section">
+    <p class="field-label">카테고리</p>
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <div class="drawer__section guide">
+    <p class="field-label">사용 안내</p>
+    <ul class="guide__list">
+      <li>이미지를 클릭하면 상세 설명이 열립니다. <kbd>Esc</kbd> 또는 바깥을 누르면 닫힙니다.</li>
+      <li>화면을 드래그하거나 휠·트랙패드를 움직이면 평면을 상하좌우 어디로든 이동합니다.</li>
+      <li><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> 방향키로도 움직일 수 있습니다.</li>
+      <li>상세 설명의 [핀터레스트에서 관련 디자인 찾기] 를 누르면 그 자료의 영문 키워드로 핀터레스트 검색이 새 탭에 열립니다.</li>
+      <li>인터넷 없이 컴퓨터 안에서만 열리는 페이지입니다. 사진은 2026년 현재 활동하는 스튜디오·디자이너의 실제 작업물이며, 개인 열람용으로만 담았습니다.</li>
+    </ul>
+  </div>
+
+  <div class="drawer__foot">
+    <span id="footCount">자료 0건</span>
+  </div>
+</aside>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="자료 상세" hidden>
+  <div class="modal__inner" id="modalInner">
+    <button class="icon-btn modal__close" id="modalClose" type="button" aria-label="상세 닫기">×</button>
+    <div class="modal__body" id="modalBody"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
