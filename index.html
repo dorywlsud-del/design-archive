@@ -53,6 +53,8 @@
     <p class="field-label">사용 안내</p>
     <ul class="guide__list">
       <li>이미지를 클릭하면 상세 설명이 열립니다. <kbd>Esc</kbd> 또는 바깥을 누르면 닫힙니다.</li>
+      <li>상세 설명에서 <kbd>←</kbd> <kbd>→</kbd> 또는 아래쪽 [이전]·[다음]으로 옆 자료를 넘겨 봅니다. 휴대폰에서는 좌우로 밀면 됩니다.</li>
+      <li>[링크 복사]를 누르면 그 자료가 바로 열리는 주소가 복사됩니다.</li>
       <li>화면을 드래그하거나 휠·트랙패드를 움직이면 평면을 상하좌우 어디로든 이동합니다.</li>
       <li><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> 방향키로도 움직일 수 있습니다.</li>
       <li>상세 설명의 [핀터레스트에서 관련 디자인 찾기] 를 누르면 그 자료의 영문 키워드로 핀터레스트 검색이 새 탭에 열립니다.</li>
@@ -68,6 +70,13 @@
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="자료 상세" hidden>
   <div class="modal__inner" id="modalInner">
     <button class="icon-btn modal__close" id="modalClose" type="button" aria-label="상세 닫기">×</button>
+    <nav class="modal__nav" aria-label="자료 넘겨 보기">
+      <button class="nav-btn" id="modalPrev" type="button" aria-label="이전 자료"><span aria-hidden="true">←</span><span class="nav-btn__text">이전</span></button>
+      <span class="modal__count" id="modalCount" aria-live="polite">01 / 01</span>
+      <button class="nav-btn" id="modalNext" type="button" aria-label="다음 자료"><span class="nav-btn__text">다음</span><span aria-hidden="true">→</span></button>
+      <span class="modal__sep" aria-hidden="true"></span>
+      <button class="nav-btn" id="modalCopy" type="button" title="이 자료로 바로 열리는 주소를 복사합니다">링크 복사</button>
+    </nav>
     <div class="modal__body" id="modalBody"></div>
   </div>
 </div>

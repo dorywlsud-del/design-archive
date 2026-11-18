@@ -45,7 +45,8 @@
   var COLS = [400, 372, 418, 386, 404, 376];  // 열 너비 패턴(합계가 월 폭)
   var GAP_Y = 76;           // 같은 열 안 항목 사이 간격
   var GAP_X = 0;            // 열 사이 여백은 열 너비에 포함
-  var TILE_GAP = 480;       // 타일과 타일 사이 여백(무한 반복 시 보이는 간격)
+  var COL_START = [0, 132, 48, 210, 86, 170]; // 열마다 시작 높이를 어긋나게
+  var MIN_WRAP = 3;         // 이 수 이상이면 화면을 빈틈없이 채우며 무한 반복
   var EDGE = 260;           // 내용 밖으로 이동할 수 있는 여유
   var DIM_HINT_DELAY = 900;
 
@@ -70,7 +71,11 @@
     empty: $('empty'),
     emptyText: $('emptyText'),
     emptyReset: $('emptyReset'),
-    footCount: $('footCount')
+    footCount: $('footCount'),
+    modalPrev: $('modalPrev'),
+    modalNext: $('modalNext'),
+    modalCount: $('modalCount'),
+    modalCopy: $('modalCopy')
   };
 
   var state = {
@@ -83,8 +88,12 @@
     contentW: 0,
     contentH: 0,
     tileW: 0,
-    tileH: 0,
+    colPeriod: [],
     wrap: false,
+    order: [],
+    current: null,
+    pushed: false,
+    copyTimer: 0,
     nodes: [],
     dragging: false,
     moved: false,
@@ -141,23 +150,38 @@
     return out;
   }
 
-  /* ── 배치 계산 (열 기반 메이슨리 + 산개) ───────────────────────────── */
-  //  이미지 비율을 지키면서 6개 열에 차례로 채우고, 열마다 폭과 시작 위치를
-  //  조금씩 어긋나게 두어 격자처럼 딱딱하지 않게 흩뜨린다.
+  /* ── 배치 계산 (열 기반 메이슨리 + 무한 반복) ──────────────────────── */
+  //  이미지 비율을 지키면서 가장 짧은 열부터 채운다. 자료가 충분하면
+  //  자료를 돌려 가며 모든 열을 화면 높이 이상으로 채우고, 각 열이 제 높이를
+  //  주기로 따로 반복되게 해서 어디로 움직여도 빈 공간이 생기지 않게 한다.
   function layout(items) {
+    var wrap = items.length >= MIN_WRAP;
+    var sumW = COLS.reduce(function (a, b) { return a + b; }, 0);
+    var reps = wrap ? Math.max(1, Math.ceil((state.vw + 520) / sumW)) : 1;
+
+    var cols = [];
+    for (var r = 0; r < reps; r++) cols = cols.concat(COLS);
+
     var colX = [];
     var acc = 0;
-    COLS.forEach(function (w) { colX.push(acc); acc += w; });
+    cols.forEach(function (w) { colX.push(acc); acc += w; });
 
-    var colY = COLS.map(function () { return 0; });
+    var start = cols.map(function (_, c) { return wrap ? COL_START[c % COL_START.length] : 0; });
+    var colY = start.slice();
+    var colLast = cols.map(function () { return null; });
     var placed = [];
+    var k = 0;
 
-    items.forEach(function (item, idx) {
+    function shortest() {
       var col = 0;
-      for (var c = 1; c < COLS.length; c++) {
-        if (colY[c] < colY[col] - 0.5) col = c;
+      for (var c = 1; c < cols.length; c++) {
+        if (colY[c] - start[c] < colY[col] - start[col] - 0.5) col = c;
       }
-      var colW = COLS[col];
+      return col;
+    }
+
+    function place(item, col) {
+      var colW = cols[col];
       var ar = (item.w || 4) / (item.h || 3);
 
       var w;
@@ -166,26 +190,51 @@
       else w = colW * 0.93;
 
       var h = w / ar;
-      var jx = (((idx * 37) % 5) - 2) * 5;    // -10 ~ +10
-      var jy = (((idx * 61) % 5) - 2) * 7;    // -14 ~ +14
+      var jx = (((k * 37) % 5) - 2) * 5;      // -10 ~ +10
+      var jy = (((k * 61) % 5) - 2) * 7;      // -14 ~ +14
       var x = colX[col] + (colW - w) / 2 + jx;
       var y = colY[col] + jy;
 
-      placed.push({ item: item, x: x, y: y, w: w, h: h });
+      placed.push({ item: item, col: col, x: x, y: y, w: w, h: h });
       colY[col] = y + h + GAP_Y;
-    });
+      colLast[col] = item.id;
+      k++;
+    }
 
+    if (!wrap) {
+      items.forEach(function (item) { place(item, shortest()); });
+    } else {
+      // 같은 자료가 같은 열이나 바로 옆 열에 연달아 오지 않도록 덱에서 고른다.
+      var n = items.length;
+      var deck = items.slice();
+      var minH = state.vh + 820;
+      while (k < n || colY[shortest()] - start[shortest()] < minH) {
+        if (deck.length < n) deck = deck.concat(items);
+        var col = shortest();
+        var near = [colLast[col], colLast[col - 1], colLast[col + 1]];
+        var pick = 0;
+        for (var t = 0; t < Math.min(n, deck.length); t++) {
+          if (near.indexOf(deck[t].id) === -1) { pick = t; break; }
+        }
+        place(deck.splice(pick, 1)[0], col);
+        if (k > 4000) break;
+      }
+    }
+
+    state.wrap = wrap;
     state.contentW = acc;
     state.contentH = Math.max.apply(null, colY.concat([0])) - GAP_Y;
-    state.tileW = acc + TILE_GAP;
-    state.tileH = state.contentH + TILE_GAP;
+    state.tileW = acc;
+    state.colPeriod = colY.map(function (y, c) { return y - start[c]; });
     return placed;
   }
 
   /* ── 렌더 ─────────────────────────────────────────────────────────── */
   function render(resetView) {
     var ordered = interleave(visibleItems());
-    var placed = layout(ordered);
+    state.order = ordered;
+    var placed = ordered.length ? layout(ordered) : [];
+    if (!ordered.length) state.wrap = false;
 
     el.ground.textContent = '';
     state.nodes = [];
@@ -224,16 +273,12 @@
 
       card.addEventListener('click', function () {
         if (state.moved) return;
-        openModal(item, card);
+        openModal(item, card, true);
       });
 
       el.ground.appendChild(card);
-      state.nodes.push({ el: card, x: p.x, y: p.y });
+      state.nodes.push({ el: card, x: p.x, y: p.y, w: p.w, h: p.h, col: p.col });
     });
-
-    state.wrap = placed.length >= 8 &&
-      state.tileW >= state.vw * 0.95 &&
-      state.tileH >= state.vh * 0.95;
 
     if (resetView || !state.nodes.length) centerContent();
 
@@ -243,6 +288,7 @@
   }
 
   function centerContent() {
+    if (state.wrap) { state.panX = 44; state.panY = 92; return; }
     // 내용이 화면보다 작으면 가운데, 크면 왼쪽 위에서 여유를 두고 시작한다.
     state.panX = state.contentW + 120 < state.vw
       ? (state.vw - state.contentW) / 2
@@ -274,8 +320,9 @@
       var x = n.x + state.panX;
       var y = n.y + state.panY;
       if (state.wrap) {
-        x += Math.round((cx - x) / state.tileW) * state.tileW;
-        y += Math.round((cy - y) / state.tileH) * state.tileH;
+        var period = state.colPeriod[n.col];
+        x += Math.round((cx - x - n.w / 2) / state.tileW) * state.tileW;
+        y += Math.round((cy - y - n.h / 2) / period) * period;
       }
       n.el.style.transform = 'translate3d(' + Math.round(x) + 'px,' + Math.round(y) + 'px,0)';
     }
@@ -448,21 +495,142 @@
       '</div>';
   }
 
-  function openModal(item, opener) {
-    state.lastFocus = opener || document.activeElement;
-    el.modalBody.innerHTML = detailHTML(item);
-    el.modal.hidden = false;
-    el.modalClose.focus({ preventScroll: true });
+  //  상세 화면에서 넘겨 볼 순서 — 지금 캔버스에 보이는 순서를 따르고,
+  //  링크로 들어온 자료가 현재 필터 밖이면 전체 자료 순서를 쓴다.
+  function navList() {
+    var cur = state.current;
+    var inOrder = cur && state.order.some(function (i) { return i.id === cur.id; });
+    return inOrder ? state.order : DATA;
   }
 
-  function closeModal() {
+  function findItem(id) {
+    for (var i = 0; i < DATA.length; i++) if (DATA[i].id === id) return DATA[i];
+    return null;
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  //  주소 끝의 #자료id 로 각 자료를 바로 열 수 있게 한다. (file:// 에서도 동작)
+  function setHash(id, mode) {
+    var url = id ? '#' + encodeURIComponent(id) : location.pathname + location.search;
+    try {
+      history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', url);
+    } catch (err) {
+      if (id) location.hash = id;
+    }
+  }
+
+  function hashId() {
+    try { return decodeURIComponent(location.hash.replace(/^#\/?/, '')); }
+    catch (err) { return ''; }
+  }
+
+  function showItem(item) {
+    state.current = item;
+    el.modalBody.innerHTML = detailHTML(item);
+    el.modalBody.classList.remove('is-swap');
+    void el.modalBody.offsetWidth;
+    el.modalBody.classList.add('is-swap');
+    el.modal.scrollTop = 0;
+
+    var list = navList();
+    var idx = list.indexOf(item);
+    el.modalCount.textContent = pad(idx + 1) + ' / ' + pad(list.length);
+    var single = list.length < 2;
+    el.modalPrev.disabled = single;
+    el.modalNext.disabled = single;
+
+    // 앞뒤 자료 이미지를 미리 받아 두면 넘길 때 깜박이지 않는다.
+    if (!single) {
+      [list[(idx + 1) % list.length], list[(idx - 1 + list.length) % list.length]].forEach(function (n) {
+        var im = new Image(); im.src = n.img;
+      });
+    }
+  }
+
+  function openModal(item, opener, push) {
+    if (el.modal.hidden) state.lastFocus = opener || document.activeElement;
+    showItem(item);
+    el.modal.hidden = false;
+    el.modalClose.focus({ preventScroll: true });
+    if (push) {
+      setHash(item.id, 'push');
+      state.pushed = true;
+    } else {
+      setHash(item.id, 'replace');
+    }
+  }
+
+  function stepModal(d) {
+    if (el.modal.hidden || !state.current) return;
+    var list = navList();
+    if (list.length < 2) return;
+    var idx = list.indexOf(state.current);
+    var next = list[(idx + d + list.length) % list.length];
+    showItem(next);
+    setHash(next.id, 'replace');
+  }
+
+  function closeModal(fromHistory) {
     if (el.modal.hidden) return;
     el.modal.hidden = true;
     el.modalBody.textContent = '';
+    state.current = null;
+    if (!fromHistory) {
+      if (state.pushed) history.back();   // 열 때 쌓은 기록을 되돌려 뒤로가기와 맞춘다
+      else setHash('', 'replace');
+    }
+    state.pushed = false;
+    resetCopy();
     if (state.lastFocus && state.lastFocus.focus) {
       state.lastFocus.focus({ preventScroll: true });
     }
     state.lastFocus = null;
+  }
+
+  function syncFromHash() {
+    var item = findItem(hashId());
+    if (item) {
+      if (state.current !== item) {
+        if (el.modal.hidden) state.lastFocus = document.activeElement;
+        showItem(item);
+        el.modal.hidden = false;
+      }
+    } else {
+      closeModal(true);
+    }
+  }
+
+  function resetCopy() {
+    clearTimeout(state.copyTimer);
+    el.modalCopy.textContent = '링크 복사';
+  }
+
+  function copyLink() {
+    var url = location.href;
+    function done(ok) {
+      el.modalCopy.textContent = ok ? '복사됨 ✓' : '복사 실패';
+      clearTimeout(state.copyTimer);
+      state.copyTimer = setTimeout(resetCopy, 1600);
+    }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = url;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
   }
 
   /* ── 이동 ─────────────────────────────────────────────────────────── */
@@ -517,7 +685,27 @@
       render(true);
     });
 
-    el.modalClose.addEventListener('click', closeModal);
+    el.modalClose.addEventListener('click', function () { closeModal(); });
+    el.modalPrev.addEventListener('click', function () { stepModal(-1); });
+    el.modalNext.addEventListener('click', function () { stepModal(1); });
+    el.modalCopy.addEventListener('click', copyLink);
+    window.addEventListener('hashchange', syncFromHash);
+
+    // 상세 화면에서 좌우로 밀어 넘기기 (휴대폰·태블릿)
+    var swipeX = 0, swipeY = 0, swiping = false;
+    el.modal.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { swiping = false; return; }
+      swiping = true;
+      swipeX = e.touches[0].clientX;
+      swipeY = e.touches[0].clientY;
+    }, { passive: true });
+    el.modal.addEventListener('touchend', function (e) {
+      if (!swiping) return;
+      swiping = false;
+      var dx = e.changedTouches[0].clientX - swipeX;
+      var dy = e.changedTouches[0].clientY - swipeY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) stepModal(dx < 0 ? 1 : -1);
+    }, { passive: true });
     el.modal.addEventListener('click', function (e) {
       if (e.target === el.modal) closeModal();
     });
@@ -585,6 +773,11 @@
         if (!el.modal.hidden) { closeModal(); return; }
         if (state.drawerOpen) { closeDrawer(); return; }
       }
+      if (!el.modal.hidden) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); stepModal(-1); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); stepModal(1); }
+        return;
+      }
       var t = e.target;
       var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
       if (typing || !el.modal.hidden) return;
@@ -629,6 +822,7 @@
     buildFilters();
     bindEvents();
     render(true);
+    syncFromHash();   // 주소에 #자료id 가 있으면 그 자료를 바로 연다
     setTimeout(function () { el.hint.classList.add('is-dim'); }, 6000);
   }
 
