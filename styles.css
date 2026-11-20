@@ -749,3 +749,90 @@ kbd {
   .nav-btn__text { display: none; }
   .modal__count { min-width: 60px; }
 }
+
+/* ── 글자 카드 (대표 이미지가 없는 자료) ─────────────────────────────── */
+.card__frame--text,
+.detail__media--text {
+  --tc: #d8d6cf;
+  --tbg: #141414;
+}
+[data-cat="graphic"]   { --tc: #ff6a3d; --tbg: #1c0f0a; }
+[data-cat="editorial"] { --tc: #f2e8cf; --tbg: #17150f; }
+[data-cat="book"]      { --tc: #e58fb4; --tbg: #1a0d13; }
+[data-cat="print"]     { --tc: #c59bff; --tbg: #120b1c; }
+[data-cat="edu"]       { --tc: #b7e34a; --tbg: #10160a; }
+[data-cat="type"]      { --tc: #8fb4ff; --tbg: #0b1020; }
+[data-cat="info"]      { --tc: #57d3c4; --tbg: #081614; }
+[data-cat="award"]     { --tc: #ffcf3f; --tbg: #1a1505; }
+
+.card__frame--text {
+  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 22px 20px;
+  background: var(--tbg);
+  line-height: 1.35;
+  color: var(--tc);
+  border-top: 3px solid var(--tc);
+}
+.tcard__cat {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.tcard__title {
+  font-family: var(--serif);
+  font-size: 25px;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  word-break: keep-all;
+}
+.tcard__meta {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.detail__media--text {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  align-self: stretch;
+  min-height: min(62vh, 560px);
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 40px 42px;
+  background: var(--tbg);
+  border-top: 4px solid var(--tc);
+  color: var(--tc);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.75);
+}
+.detail__media-title {
+  font-family: var(--serif);
+  font-size: clamp(26px, 3.4vw, 46px);
+  line-height: 1.22;
+  color: var(--fg);
+  word-break: keep-all;
+}
+
+.detail__meta span { flex-basis: 62px; }
+.detail__meta .rel { color: #ffcf3f; }
+
+.detail__media--text { width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.detail__media-title, .tcard__title { overflow-wrap: anywhere; }
+@media (max-width: 1024px) {
+  .detail__media--text { max-width: 100%; min-height: 240px; padding: 26px 24px; gap: 18px; }
+  .detail__media-title { font-size: 26px; }
+}
+
+/* 휴대폰에서 상세 화면이 화면 폭보다 넓어지던 문제 수정 (flex 자식의 최소 폭) */
+.modal__inner, .modal__body, .detail__media, .detail__panel { min-width: 0; }
+.modal__body { flex: 1 1 auto; }
+@media (max-width: 1024px) {
+  .modal__inner { max-width: min(640px, 100%); }
+  .detail__panel { width: 100%; }
+}

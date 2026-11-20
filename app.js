@@ -7,16 +7,27 @@
   'use strict';
 
   var DATA = Array.isArray(window.ARCHIVE_DATA) ? window.ARCHIVE_DATA.slice() : [];
-  var CATS = ['그래픽 레퍼런스', '편집 디자인', '북디자인', '타이포그래피', '인쇄·제본'];
+  // 통일 분류 8개 (2026-11-20 확정). data.js 의 cat 값은 반드시 이 중 하나.
+  var CATS = ['그래픽·브랜딩', '편집디자인', '북디자인', '교육디자인', '타이포그래피', '인포그래픽', '어워드·행사', '인쇄·제본'];
+
+  // 이미지가 없는 자료(정책 기사·연구·공공 자료 등)는 카테고리 색의 글자 카드로 보여 준다.
+  var CAT_KEY = {
+    '그래픽·브랜딩': 'graphic', '편집디자인': 'editorial', '북디자인': 'book', '교육디자인': 'edu',
+    '타이포그래피': 'type', '인포그래픽': 'info', '어워드·행사': 'award', '인쇄·제본': 'print'
+  };
+  function stars(n) { return n ? new Array(n + 1).join('★') : ''; }
 
   // 핀터레스트 검색은 영문 디자인 키워드 조합에서 결과가 훨씬 풍부하다.
   // 자료에 영문 키워드(pinKeywords)가 있으면 그것을 쓰고, 없으면 아래 표로
   // 카테고리·태그를 영문으로 옮겨 검색어를 만든다.
   var PIN_CAT = {
-    '그래픽 레퍼런스': 'graphic design',
-    '편집 디자인': 'editorial design',
+    '그래픽·브랜딩': 'graphic design',
+    '편집디자인': 'editorial design',
     '북디자인': 'book design',
+    '교육디자인': 'educational design',
     '타이포그래피': 'typography',
+    '인포그래픽': 'infographic',
+    '어워드·행사': 'award winning design',
     '인쇄·제본': 'risograph print'
   };
 
@@ -120,7 +131,7 @@
   function matches(item, q) {
     if (!q) return true;
     var hay = [
-      item.ko, item.en, item.cat, item.maker, item.year, item.kind, item.license,
+      item.ko, item.en, item.cat, item.maker, item.year, item.kind, item.relLabel,
       (item.tags || []).join(' '), (item.points || []).join(' ')
     ].join(' ').toLowerCase();
     return hay.indexOf(q) !== -1;
@@ -253,16 +264,25 @@
       var frame = document.createElement('span');
       frame.className = 'card__frame';
 
-      var img = document.createElement('img');
-      img.src = item.img;
-      img.alt = item.ko + ' (' + item.en + ')';
-      img.width = item.w;
-      img.height = item.h;
-      img.loading = i < 9 ? 'eager' : 'lazy';
-      img.decoding = 'async';
-      img.draggable = false;
-      img.addEventListener('error', function () { card.classList.add('is-broken'); });
-      frame.appendChild(img);
+      if (item.img) {
+        var img = document.createElement('img');
+        img.src = item.img;
+        img.alt = item.ko + ' (' + item.en + ')';
+        img.width = item.w;
+        img.height = item.h;
+        img.loading = i < 9 ? 'eager' : 'lazy';
+        img.decoding = 'async';
+        img.draggable = false;
+        img.addEventListener('error', function () { card.classList.add('is-broken'); });
+        frame.appendChild(img);
+      } else {
+        frame.className += ' card__frame--text';
+        frame.setAttribute('data-cat', CAT_KEY[item.cat] || '');
+        frame.innerHTML =
+          '<span class="tcard__cat">' + esc(item.cat) + '</span>' +
+          '<span class="tcard__title">' + esc(item.ko) + '</span>' +
+          '<span class="tcard__meta">' + esc(item.maker) + '<br>' + esc(item.year) + ' · ' + stars(item.rel) + '</span>';
+      }
 
       var cap = document.createElement('span');
       cap.className = 'card__caption';
@@ -463,17 +483,26 @@
 
     var pinKeywords = pinQuery(item);
 
+    var media = item.img
+      ? '<div class="detail__media"><img src="' + esc(item.img) + '" alt="' + esc(item.ko) + ' (' + esc(item.en) + ')" width="' + item.w + '" height="' + item.h + '"></div>'
+      : '<div class="detail__media detail__media--text" data-cat="' + esc(CAT_KEY[item.cat] || '') + '">' +
+          '<span class="tcard__cat">' + esc(item.cat) + '</span>' +
+          '<span class="detail__media-title">' + esc(item.ko) + '</span>' +
+          '<span class="tcard__meta">' + esc(item.en) + '</span>' +
+        '</div>';
+
     return '' +
-      '<div class="detail__media"><img src="' + esc(item.img) + '" alt="' + esc(item.ko) + ' (' + esc(item.en) + ')" width="' + item.w + '" height="' + item.h + '"></div>' +
+      media +
       '<div class="detail__panel">' +
         '<div class="detail__cat"><span>' + esc(item.cat) + '</span><span class="dot"></span><span>' + esc(item.kind || '') + '</span></div>' +
         '<h2 class="detail__ko">' + esc(item.ko) + '</h2>' +
         '<p class="detail__en">' + esc(item.en) + '</p>' +
         '<div class="detail__meta">' +
-          '<div><span>제작</span><b>' + esc(item.maker) + '</b></div>' +
-          '<div><span>연도</span><b>' + esc(item.year) + '</b></div>' +
+          '<div><span>제작·출처</span><b>' + esc(item.maker) + '</b></div>' +
+          '<div><span>시점</span><b>' + esc(item.year) + '</b></div>' +
+          '<div><span>신뢰도</span><b class="rel" title="' + esc(item.relLabel) + '">' + esc(item.relLabel || '') + '</b></div>' +
         '</div>' +
-        '<h3 class="detail__h">디자인 포인트</h3>' +
+        '<h3 class="detail__h">핵심 내용</h3>' +
         '<ol class="detail__points">' + points + '</ol>' +
         '<div class="detail__tags">' + tags + '</div>' +
         '<div class="detail__pin">' +
@@ -489,7 +518,8 @@
           '<p class="detail__pin-note">영문 키워드 검색 · <b>' + esc(pinKeywords) + '</b></p>' +
         '</div>' +
         '<p class="detail__credit">출처 · ' + esc(item.credit) +
-          '<span class="detail__license">' + esc(item.license) + '</span>' +
+          '<span class="detail__license">' + esc(item.license || (item.img ? '이미지: 원문 페이지 대표 이미지 · © 원저작자, 개인 열람용' : '원문에 대표 이미지가 없어 글자 카드로 표시')) +
+          (item.added ? '<span class="detail__license">추가 ' + esc(item.added) + (item.source ? ' · ' + esc(item.source) : '') + '</span>' : '') + '</span>' +
           '<a href="' + esc(item.link) + '" target="_blank" rel="noopener">원본 페이지 열기 ↗</a>' +
         '</p>' +
       '</div>';
@@ -543,7 +573,7 @@
     // 앞뒤 자료 이미지를 미리 받아 두면 넘길 때 깜박이지 않는다.
     if (!single) {
       [list[(idx + 1) % list.length], list[(idx - 1 + list.length) % list.length]].forEach(function (n) {
-        var im = new Image(); im.src = n.img;
+        if (n.img) { var im = new Image(); im.src = n.img; }
       });
     }
   }
